@@ -11,3 +11,24 @@
 <script type="text/javascript" id="MathJax-script" async
   src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
 </script>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    var node;
+    while (node = walker.nextNode()) {
+      if (node.nodeValue.indexOf("$") === -1) continue;
+      var html = node.nodeValue
+        .replace(/\$\$([\s\S]+?)\$\$/g, function (m, inner) {
+          return "$$" + inner.replace(/_/g, "\\_") + "$$";
+        })
+        .replace(/\$([^\$\n]+?)\$/g, function (m, inner) {
+          return "$" + inner.replace(/_/g, "\\_") + "$";
+        });
+      if (html !== node.nodeValue) {
+        var span = document.createElement("span");
+        span.innerHTML = html;
+        node.parentNode.replaceChild(span, node);
+      }
+    }
+  });
+</script>
