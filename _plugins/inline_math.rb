@@ -1,16 +1,14 @@
 Jekyll::Hooks.register [:pages, :documents], :pre_render do |doc|
-  content = doc.content
-
-  # 保存行内数学公式
   math = []
 
-  content = content.gsub(/(?<!\\)(?<!\$)\$(?!\$)(.+?)(?<!\\)(?<!\$)\$(?!\$)/m) do
+  doc.content = doc.content.gsub(
+    /(?<!\\)(?<!\$)\$(?!\$)([^\n$]+?)(?<!\\)\$(?!\$)/
+  ) do
     id = math.length
     math << $&
-    "<span class=\"math-protect\" data-math-id=\"#{id}\"></span>"
+    "INLINE_MATH_PROTECT_#{id}_END"
   end
 
-  doc.content = content
   doc.data["_inline_math"] = math
 end
 
@@ -20,7 +18,7 @@ Jekyll::Hooks.register [:pages, :documents], :post_render do |doc|
 
   math.each_with_index do |expr, i|
     doc.output.gsub!(
-      "<span class=\"math-protect\" data-math-id=\"#{i}\"></span>",
+      "INLINE_MATH_PROTECT_#{i}_END",
       expr
     )
   end
