@@ -1,3 +1,5 @@
+require "cgi"
+
 Jekyll::Hooks.register [:pages, :documents], :pre_render do |doc|
   math = []
 
@@ -19,7 +21,7 @@ Jekyll::Hooks.register [:pages, :documents], :post_render do |doc|
   math.each_with_index do |expr, i|
     doc.output.gsub!(
       "INLINE_MATH_PROTECT_#{i}_END",
-      expr
+      CGI.escapeHTML(expr)
     )
   end
 end
