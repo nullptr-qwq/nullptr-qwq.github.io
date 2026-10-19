@@ -1,3 +1,4 @@
+
 name: Build and deploy Jekyll
 
 on:
@@ -24,7 +25,6 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Pages
-        id: pages
         uses: actions/configure-pages@v5
 
       - name: Setup Ruby
@@ -36,7 +36,71 @@ jobs:
       - name: Build site
         env:
           JEKYLL_ENV: production
+          PAGES_REPO_NWO: ${{ github.repository }}
+          JEKYLL_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bundle exec jekyll build
+
+      # 安装网页加密工具
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install StatiCrypt
+        run: npm install -g staticrypt@3
+
+      # 自动加密标记的文章
+      - name: Encrypt protected posts
+        env:
+          STATICRYPT_PASSWORD: ${{ secrets.SITE_PASSWORD }}
+          JEKYLL_ENV: production
+          PAGES_REPO_NWO: ${{ github.repository }}
+          JEKYLL_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -z "$STATICRYPT_PASSWORD" ]; then
+            echo "Error: SITE_PASSWORD is not set"
+            exit 1
+          fi
+
+          bundle exec ruby -rjekyll <<'RUBY'
+          site = Jekyll::Site.new(Jekyll.configuration({}))
+          site.read
+
+          protected = site.posts.docs.select do |post|
+            post.data["password_protected"] == true
+          end
+
+          if protected.empty?
+            abort "No posts marked password_protected: true"
+          end
+
+          protected.each do |post|
+            html = post.destination(site.dest)
+
+            unless File.file?(html)
+              abort "Generated HTML not found: #{html}"
+            end
+
+            before = File.binread(html)
+
+            puts "Encrypting: #{post.url}"
+
+            success = system(
+              "staticrypt",
+              html,
+              "--directory", File.dirname(html),
+              "--config", "false",
+              "--template-title", "请输入文章访问密码"
+            )
+
+            unless success && File.file?(html) &&
+                   File.binread(html) != before
+              abort "Encryption failed: #{html}"
+            end
+          end
+
+          puts "Encrypted #{protected.length} post(s)."
+          RUBY
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
